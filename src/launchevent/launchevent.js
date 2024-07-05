@@ -26,32 +26,30 @@ function messageHandler(arg) {
   sendEvent.completed({ allowEvent: true });
 }
 
-function getSubject() {
-  return new Promise(function (resolve, reject){
-    Office.context.mailbox.item?.subject.getAsync((asyncResult) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Failed) {
-          reject(asyncResult.error);
-        }
-        resolve(asyncResult.value.toLowerCase());
-    });
+function processOnSend(event) {
+  Office.context.mailbox.item?.subject.getAsync((asyncResult) => {
+      if (asyncResult.status === Office.AsyncResultStatus.Failed) {
+        console.error(asyncResult.error);
+      }
+
+      if (asyncResult.value.toLowerCase().includes('prompt')) {
+        // Display a dialogue
+        sendEvent = event;
+        Office.context.ui.displayDialogAsync(`${window.location.origin}/user.html`, {height: 30, width: 20},
+          function (asyncResult) {
+            dialog = asyncResult.value;
+            userDialog = dialog;
+            dialog.addEventHandler(Office.EventType.DialogMessageReceived, messageHandler);
+          }
+        );
+      } else {
+        event.completed({ allowEvent: true });
+      }
   });
 }
 
-async function onMessageSendHandler(event) {
-  subject = await getSubject();
-  if (subject.includes('prompt')) {
-    // Display a dialogue
-    sendEvent = event;
-    Office.context.ui.displayDialogAsync(`${window.location.origin}/user.html`, {height: 30, width: 20},
-      function (asyncResult) {
-        dialog = asyncResult.value;
-        userDialog = dialog;
-        dialog.addEventHandler(Office.EventType.DialogMessageReceived, messageHandler);
-      }
-    );
-  } else {
-    event.completed({ allowEvent: true });
-  }
+function onMessageSendHandler(event) {
+  processOnSend(event);
 }
 
 function prependToMessageBody(text) {
@@ -71,20 +69,6 @@ function setItemInternetHeaders(name, size) {
     } else {
       console.log("Error setting headers: " + JSON.stringify(asyncResult.error));
     }
-  });
-}
-
-function getItemInternetHeaders() {
-  return new Promise(function (resolve, reject){
-    Office.context.mailbox.item.internetHeaders.getAsync(['header-name', 'header-size'], function (asyncResult) {
-      if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-        console.log("Selected headers: " + JSON.stringify(asyncResult.value));
-        resolve(asyncResult.value);
-      } else {
-        console.log("Error getting selected headers: " + JSON.stringify(asyncResult.error));
-        reject(asyncResult.error);
-      }
-    });
   });
 }
 
